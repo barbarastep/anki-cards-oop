@@ -1,6 +1,7 @@
 import random
 import sys
 import time
+from pathlib import Path
 from typing import Dict, List, Tuple
 
 
@@ -16,8 +17,12 @@ def load_words(filename: str = "words.txt") -> Dict[str, str]:
     """Загружает словарь слов из текстового файла."""
     words = {}
 
+    file_path = Path(filename)
+    if not file_path.exists():
+        file_path = Path(__file__).with_name(filename)
+
     try:
-        with open(filename, "r", encoding="utf-8") as file:
+        with open(file_path, "r", encoding="utf-8") as file:
             for line in file:
                 line = line.strip()
 
@@ -38,7 +43,11 @@ def save_words(
     filename: str = "words.txt",
 ) -> None:
     """Сохраняет словарь слов в текстовый файл."""
-    with open(filename, "w", encoding="utf-8") as file:
+    file_path = Path(filename)
+    if not file_path.exists():
+        file_path = Path(__file__).with_name(filename)
+
+    with open(file_path, "w", encoding="utf-8") as file:
         for word, translation in words.items():
             file.write(f"{word}, {translation}\n")
 
