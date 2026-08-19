@@ -17,7 +17,11 @@ class TextFileLoader:
         self._file_path = path
 
     def load_words(self) -> dict[str, str]:
-        """Загружает словарь слов из текстового файла."""
+        """Загружает словарь слов из текстового файла.
+
+        Returns:
+            dict[str, str]: Словарь слов.
+        """
         words = {}
 
         if not self._file_path.exists():
@@ -36,7 +40,17 @@ class TextFileLoader:
         return words
 
     def save_words(self, words: dict[str, str]) -> None:
-        """Сохраняет словарь слов в текстовый файл."""
+        """Сохраняет словарь слов в текстовый файл.
+
+        Args:
+            words: Словарь, где ключ — слово, а значение — перевод.
+
+        Returns:
+            None
+
+        Raises:
+            ValueError: Если words не является словарём.
+        """
         if not isinstance(words, dict):
             raise ValueError("words должен быть словарём")
 
