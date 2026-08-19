@@ -63,14 +63,11 @@ class TextUI:
             self._anki_game.add_word(word, translation)
 
     def show_words(self) -> None:
-        """Выводит все пары слово-перевод одной строкой."""
+        """Выводит все пары слово-перевод."""
         words = self._anki_game.get_words()
-        formatted_words = []
 
         for word, translation in words.items():
-            formatted_words.append(f"{word} - {translation}")
-
-        print("; ".join(formatted_words))
+            print(f"{word} - {translation}")
 
     def main_loop(self) -> None:
         """Запускает основной цикл меню пользовательского интерфейса."""
