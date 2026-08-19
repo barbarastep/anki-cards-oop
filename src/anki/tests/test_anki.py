@@ -111,3 +111,59 @@ def test_anki_init_normalizes_words():
     anki = Anki(words={"  Hello  ": " ПРИВЕТ "})
 
     assert anki.get_words() == {"hello": "привет"}
+
+
+def test_get_random_word_returns_word_from_dictionary():
+    """Метод `get_random_word` должен возвращать слово из словаря."""
+    anki = Anki(words={"hello": "привет"})
+
+    assert anki.get_random_word() == "hello"
+
+
+def test_get_random_word_raises_ValueError_for_empty_dictionary():
+    """Метод `get_random_word` должен выдавать ValueError
+    для пустого словаря."""
+    anki = Anki()
+
+    with pytest.raises(ValueError, match="пуст"):
+        anki.get_random_word()
+
+
+def test_check_translation_returns_true_for_correct_translation():
+    """Метод `check_translation` должен вернуть True для верного перевода."""
+    anki = Anki(words={"hello": "привет"})
+
+    assert anki.check_translation("HELLO", " ПРИВЕТ ") is True
+
+
+def test_check_translation_returns_false_for_wrong_translation():
+    """Метод `check_translation` должен вернуть False
+    для неверного перевода."""
+    anki = Anki(words={"hello": "привет"})
+
+    assert anki.check_translation("hello", "мир") is False
+
+
+def test_check_translation_raises_ValueError_for_unknown_word():
+    """Метод `check_translation` должен выдавать ValueError
+    для неизвестного слова."""
+    anki = Anki(words={"hello": "привет"})
+
+    with pytest.raises(ValueError, match="отсутств"):
+        anki.check_translation("world", "мир")
+
+
+def test_get_translation_returns_translation_for_existing_word():
+    """Метод `get_translation` должен возвращать перевод слова."""
+    anki = Anki(words={"hello": "привет"})
+
+    assert anki.get_translation(" HELLO ") == "привет"
+
+
+def test_get_translation_raises_ValueError_for_unknown_word():
+    """Метод `get_translation` должен выдавать ValueError
+    для неизвестного слова."""
+    anki = Anki(words={"hello": "привет"})
+
+    with pytest.raises(ValueError, match="отсутств"):
+        anki.get_translation("world")
