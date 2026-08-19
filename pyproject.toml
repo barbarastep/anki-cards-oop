@@ -11,10 +11,12 @@ authors = [
 description = "Игра Карты Anki"
 readme = "README.md"
 requires-python = ">=3.9"
-dependencies = [
-	"pytest"
-]
+dependencies = []
 
+[project.optional-dependencies]
+dev = [
+    "pytest"
+]
 
 [project.scripts]
 anki = "anki.main:main"
