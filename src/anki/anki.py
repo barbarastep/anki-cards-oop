@@ -22,6 +22,7 @@ class Anki:
 
     @staticmethod
     def normalize_word(word: str) -> str:
+        """Нормализует слово."""
         if not isinstance(word, str):
             raise ValueError("word должно быть строкой")
 

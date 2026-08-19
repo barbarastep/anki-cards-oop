@@ -1,8 +1,9 @@
 import random
 import sys
 import time
-from pathlib import Path
-from typing import Dict, List, Tuple
+from anki.ui import TextUI
+from anki.loader import TextFileLoader
+from anki.anki import Anki
 
 
 STOP_WORD = 'СТОП'
@@ -13,58 +14,12 @@ def is_stop(value: str) -> bool:
     return value.strip().upper() == STOP_WORD
 
 
-def load_words(filename: str = "words.txt") -> Dict[str, str]:
-    """Загружает словарь слов из текстового файла."""
-    words = {}
-
-    file_path = Path(filename)
-    if not file_path.exists():
-        file_path = Path(__file__).with_name(filename)
-
-    try:
-        with open(file_path, "r", encoding="utf-8") as file:
-            for line in file:
-                line = line.strip()
-
-                if line.count(",") == 1:
-                    word, translation = line.split(",", 1)
-                    word = word.strip()
-                    translation = translation.strip()
-                    words[word] = translation
-    except FileNotFoundError:
-        print(f"Ошибка: файл {filename} не найден.")
-        sys.exit(1)
-
-    return words
-
-
-def save_words(
-    words: Dict[str, str],
-    filename: str = "words.txt",
-) -> None:
-    """Сохраняет словарь слов в текстовый файл."""
-    file_path = Path(filename)
-    if not file_path.exists():
-        file_path = Path(__file__).with_name(filename)
-
-    with open(file_path, "w", encoding="utf-8") as file:
-        for word, translation in words.items():
-            file.write(f"{word}, {translation}\n")
-
-    print(f"Было сохранено {len(words)} слов в файл {filename}")
-
-
 def show_menu() -> None:
     """Выводит главное меню программы."""
-    print("\nМеню:")
-    print("1. Начать игру")
-    print("2. Добавить слова")
-    print("3. Тренировка до первой ошибки")
-    print("4. Вывод всех слов")
-    print("5. Выход")
+    print(TextUI.MENU)
 
 
-def get_random_words(words: Dict[str, str]) -> List[Tuple[str, str]]:
+def get_random_words(words: dict[str, str]) -> list[tuple[str, str]]:
     """Возвращает перемешанный список пар слово-перевод."""
     word_items = list(words.items())
     random.shuffle(word_items)
@@ -86,7 +41,7 @@ def print_statistics(score: int, total_time: float) -> None:
     )
 
 
-def ask_and_check(word: str, correct: str) -> Tuple[bool, bool, float]:
+def ask_and_check(word: str, correct: str) -> tuple[bool, bool, float]:
     """Запрашивает перевод слова и возвращает результат проверки."""
     print(f"Ваше слово: {word}")
 
@@ -103,7 +58,7 @@ def ask_and_check(word: str, correct: str) -> Tuple[bool, bool, float]:
     return False, is_correct, answer_time
 
 
-def start_game(words: Dict[str, str]) -> None:
+def start_game(words: dict[str, str]) -> None:
     """Запускает обычный игровой режим тренировки слов."""
     if not words:
         print("Словарь пуст. Сначала добавьте слова.")
@@ -140,7 +95,7 @@ def start_game(words: Dict[str, str]) -> None:
     print_statistics(score, total_answer_time)
 
 
-def add_words(words: Dict[str, str]) -> None:
+def add_words(anki: Anki) -> None:
     """Добавляет новые пары слово-перевод в словарь."""
     print("Чтобы закончить, введите СТОП")
 
@@ -159,10 +114,10 @@ def add_words(words: Dict[str, str]) -> None:
             print("Перевод не может быть пустым. Повторите ввод.")
             continue
 
-        words[word] = translation
+        anki.add_word(word, translation)
 
 
-def train_until_mistake(words: Dict[str, str]) -> None:
+def train_until_mistake(words: dict[str, str]) -> None:
     """Запускает тренировку до первой ошибки."""
     if not words:
         print("Словарь пуст. Сначала добавьте слова.")
@@ -200,7 +155,7 @@ def train_until_mistake(words: Dict[str, str]) -> None:
     print_statistics(score, total_answer_time)
 
 
-def show_all_words(words: Dict[str, str]) -> None:
+def show_all_words(words: dict[str, str]) -> None:
     """Выводит все пары слово-перевод одной строкой."""
     all_words = []
 
@@ -212,24 +167,25 @@ def show_all_words(words: Dict[str, str]) -> None:
 
 def main() -> None:
     """Запускает основной цикл меню приложения."""
-    filename = "words.txt"
-    words = load_words()
-    print(f"Было загружено {len(words)} слов из файла {filename}")
+    loader = TextFileLoader(file_path="src/anki/words.txt")
+    words = loader.load_words()
+    print(f"Было загружено {len(words)} слов из файла words.txt")
+    anki = Anki(words=words)
 
     while True:
         show_menu()
         menu_item = input("\nПункт меню: ").strip()
 
         if menu_item == "1":
-            start_game(words)
+            start_game(anki.get_words())
         elif menu_item == "2":
-            add_words(words)
+            add_words(anki)
         elif menu_item == "3":
-            train_until_mistake(words)
+            train_until_mistake(anki.get_words())
         elif menu_item == "4":
-            show_all_words(words)
+            show_all_words(anki.get_words())
         elif menu_item == "5":
-            save_words(words)
+            loader.save_words(anki.get_words())
             sys.exit()
         else:
             print("Неизвестный пункт меню")

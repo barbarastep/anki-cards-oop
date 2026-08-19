@@ -1,11 +1,10 @@
 from pathlib import Path
-from typing import Dict, Union
 
 
 class TextFileLoader:
     """Класс загрузки слов из текстового файла."""
 
-    def __init__(self, *, file_path: Union[str, Path]
+    def __init__(self, *, file_path: str | Path
                  = "./words.txt") -> None:
         path = Path(file_path)
 
@@ -17,7 +16,7 @@ class TextFileLoader:
 
         self._file_path = path
 
-    def load_words(self) -> Dict[str, str]:
+    def load_words(self) -> dict[str, str]:
         """Загружает словарь слов из текстового файла."""
         words = {}
 
@@ -36,7 +35,7 @@ class TextFileLoader:
 
         return words
 
-    def save_words(self, words: Dict[str, str]) -> None:
+    def save_words(self, words: dict[str, str]) -> None:
         """Сохраняет словарь слов в текстовый файл."""
         if not isinstance(words, dict):
             raise ValueError("words должен быть словарём")
