@@ -177,3 +177,29 @@ class JsonFileLoader(BaseFileLoader):
         """
 
         json.dump(words, file_object, indent=2, ensure_ascii=False)
+
+
+class JsonNetworkLoader():
+    """Загрузчик слов из JSON-файла по URL.
+
+    Работает с JSON-файлом, где данные хранятся в формате:
+    {"слово": "перевод"}.
+    """
+
+    def __init__(self, url: str):
+        self.url = url
+
+    def load_words(self) -> dict[str, str]:
+        """Загружает слова из JSON-файла по URL.
+
+        Returns:
+            dict[str, str]: Словарь со словами и переводами.
+        """
+        import requests
+
+        response = requests.get(self.url)
+        response.raise_for_status()
+        return response.json()
+
+    def save_words(self, words):
+        pass
