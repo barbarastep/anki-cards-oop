@@ -63,10 +63,18 @@ class TextUI:
             self._anki_game.add_word(word, translation)
 
     def show_words(self) -> None:
-        """Выводит все пары слово-перевод."""
-        words = self._anki_game.get_words()
+        """Выводит количество слов и все пары слово-перевод."""
+        try:
+            words_count = len(self._anki_game)
+        except TypeError:
+            words = self._anki_game.get_words()
+            for word, translation in words.items():
+                print(f"{word} - {translation}")
+            return
 
-        for word, translation in words.items():
+        print(f"Всего слов: {words_count}")
+
+        for word, translation in self._anki_game:
             print(f"{word} - {translation}")
 
     def main_loop(self) -> None:

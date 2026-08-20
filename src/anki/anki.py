@@ -136,10 +136,26 @@ class Anki:
         normalized_word = self.normalize_word(word)
         return normalized_word in self._words
 
+    def __iter__(self):
+        """Возвращает итератор по парам слово-перевод.
+
+        Returns:
+            Итератор по парам из словаря слов.
+        """
+        return iter(self._words.items())
+
+    def __len__(self) -> int:
+        """Возвращает количество слов в игре.
+
+        Returns:
+            int: Количество слов в словаре.
+        """
+        return len(self._words)
+
     def __str__(self) -> str:
         """Возвращает строковое представление объекта Anki.
 
         Returns:
             Строковое представление объекта Anki.
         """
-        return f"Anki: {len(self._words)} слов"
+        return f"Anki: {len(self)} слов"
