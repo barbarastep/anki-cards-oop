@@ -1,21 +1,32 @@
 import copy
 import random
 import time
+from collections.abc import Iterator
 
 
 class Anki:
-    """Класс приложения для тренировки слов."""
+    """Хранит словарь слов и управляет логикой тренировки."""
 
     def __init__(self, *, words: dict[str, str] | None = None) -> None:
+        """Инициализирует игру со словарём слов.
+
+        Args:
+            words: Начальный словарь слов и переводов. Если не передан,
+                используется пустой словарь.
+
+        Raises:
+            ValueError: Если words не является словарём со строковыми
+                ключами и значениями.
+        """
         if words is None:
             words = {}
 
         self._words: dict[str, str] = self._normalize_dict(words)
-        self._session_active = False
-        self._session_start_time = 0.0
-        self._session_user_score = 0
+        self._session_active: bool = False
+        self._session_start_time: float = 0.0
+        self._session_user_score: int = 0
         self._last_word: str | None = None
-        self.last_session_stats = {
+        self.last_session_stats: dict[str, int | float] = {
             "correct_answers": 0,
             "total_time": 0.0,
         }
@@ -96,7 +107,7 @@ class Anki:
         if not self._session_active:
             raise ValueError("Тренировочная сессия не активна")
 
-        total_time = time.time() - self._session_start_time
+        total_time = max(time.time() - self._session_start_time, 0.000001)
 
         self.last_session_stats = {
             "correct_answers": self._session_user_score,
@@ -209,13 +220,9 @@ class Anki:
             word: Слово для добавления.
             translation: Перевод слова.
 
-        Returns:
-            None
-
         Raises:
             ValueError: Если word или translation не являются строками.
         """
-
         if not isinstance(word, str) or not isinstance(translation, str):
             raise ValueError("word и translation должны быть строками")
 
@@ -239,7 +246,7 @@ class Anki:
         normalized_word = self.normalize_word(word)
         return normalized_word in self._words
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[tuple[str, str]]:
         """Возвращает итератор по парам слово-перевод.
 
         Returns:

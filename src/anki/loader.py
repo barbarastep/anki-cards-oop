@@ -1,5 +1,26 @@
 import json
 import pathlib
+from typing import IO, Protocol
+
+
+class WordsLoaderProtocol(Protocol):
+    """Описывает общий интерфейс загрузчиков слов."""
+
+    def load_words(self) -> dict[str, str]:
+        """Загружает слова из источника.
+
+        Returns:
+            Словарь, где ключ — слово, а значение — перевод.
+        """
+        ...
+
+    def save_words(self, words: dict[str, str]) -> None:
+        """Сохраняет слова в источник.
+
+        Args:
+            words: Словарь, где ключ — слово, а значение — перевод.
+        """
+        ...
 
 
 class BaseFileLoader:
@@ -9,15 +30,27 @@ class BaseFileLoader:
     и сохранения слов. Конкретный формат файла реализуется в наследниках.
     """
 
-    def __init__(self, *, file_path='./words.txt'):
-        self._file_path = pathlib.Path(file_path)
+    def __init__(
+        self,
+        *,
+        file_path: str | pathlib.Path = "./words.txt",
+    ) -> None:
+        """Инициализирует загрузчик файлового источника.
+
+        Args:
+            file_path: Путь к файлу со словами.
+
+        Raises:
+            ValueError: Если переданный путь указывает на директорию.
+        """
+        self._file_path: pathlib.Path = pathlib.Path(file_path)
 
         if self._file_path.exists() and self._file_path.is_dir():
             raise ValueError(
                 f"Путь {file_path} является директорией, а должен быть файлом"
             )
 
-    def load_words(self):
+    def load_words(self) -> dict[str, str]:
         """Загружает слова из файла.
 
         Returns:
@@ -30,7 +63,7 @@ class BaseFileLoader:
         with self._file_path.open("r", encoding="utf-8") as f:
             return self._load_from_file(f)
 
-    def save_words(self, words):
+    def save_words(self, words: dict[str, str]) -> None:
         """Сохраняет слова в файл.
 
         Args:
@@ -45,7 +78,7 @@ class BaseFileLoader:
         with self._file_path.open("w", encoding="utf-8") as f:
             return self._save_to_file(words, f)
 
-    def _load_from_file(self, file_object):
+    def _load_from_file(self, file_object: IO[str]) -> dict[str, str]:
         """Загружает слова из открытого файлового объекта.
 
         Метод должен быть переопределён в наследниках для конкретного
@@ -62,7 +95,11 @@ class BaseFileLoader:
         """
         raise NotImplementedError
 
-    def _save_to_file(self, words, file_object):
+    def _save_to_file(
+        self,
+        words: dict[str, str],
+        file_object: IO[str],
+    ) -> None:
         """Сохраняет слова в открытый файловый объект.
 
         Метод должен быть переопределён в наследниках для конкретного
@@ -84,9 +121,9 @@ class TextFileLoader(BaseFileLoader):
     Поддерживает формат строки: ``слово,перевод``.
     """
 
-    DEFAULT_FILE_PATH = "./words.txt"
+    DEFAULT_FILE_PATH: str = "./words.txt"
 
-    def _load_from_file(self, file_object):
+    def _load_from_file(self, file_object: IO[str]) -> dict[str, str]:
         """Загружает слова из CSV-подобного текстового файла.
 
         Args:
@@ -96,13 +133,17 @@ class TextFileLoader(BaseFileLoader):
             Словарь, где ключ — слово, а значение — перевод.
         """
 
-        words = {}
+        words: dict[str, str] = {}
         for line in file_object:
             word, translation = line.split(",")
             words[word.strip()] = translation.strip()
         return words
 
-    def _save_to_file(self, words, file_object):
+    def _save_to_file(
+        self,
+        words: dict[str, str],
+        file_object: IO[str],
+    ) -> None:
         """Сохраняет слова в CSV-подобный текстовый файл.
 
         Args:
@@ -119,9 +160,9 @@ class TSVFileLoader(BaseFileLoader):
     Поддерживает формат строки: ``слово\tперевод``.
     """
 
-    DEFAULT_FILE_PATH = "./words.tsv"
+    DEFAULT_FILE_PATH: str = "./words.tsv"
 
-    def _load_from_file(self, file_object):
+    def _load_from_file(self, file_object: IO[str]) -> dict[str, str]:
         """Загружает слова из TSV-файла.
 
         Args:
@@ -130,13 +171,17 @@ class TSVFileLoader(BaseFileLoader):
         Returns:
             Словарь, где ключ — слово, а значение — перевод.
         """
-        words = {}
+        words: dict[str, str] = {}
         for line in file_object:
             word, translation = line.split("\t")
             words[word.strip()] = translation.strip()
         return words
 
-    def _save_to_file(self, words, file_object):
+    def _save_to_file(
+        self,
+        words: dict[str, str],
+        file_object: IO[str],
+    ) -> None:
         """Сохраняет слова в TSV-файл.
 
         Args:
@@ -154,9 +199,9 @@ class JsonFileLoader(BaseFileLoader):
     {"слово": "перевод"}.
     """
 
-    DEFAULT_FILE_PATH = "./words.json"
+    DEFAULT_FILE_PATH: str = "./words.json"
 
-    def _load_from_file(self, file_object) -> dict[str, str]:
+    def _load_from_file(self, file_object: IO[str]) -> dict[str, str]:
         """Загружает слова из JSON-файла.
 
         Args:
@@ -168,7 +213,11 @@ class JsonFileLoader(BaseFileLoader):
 
         return json.load(file_object)
 
-    def _save_to_file(self, words: dict[str, str], file_object) -> None:
+    def _save_to_file(
+        self,
+        words: dict[str, str],
+        file_object: IO[str],
+    ) -> None:
         """Сохраняет слова в JSON-файл.
 
         Args:
@@ -179,15 +228,20 @@ class JsonFileLoader(BaseFileLoader):
         json.dump(words, file_object, indent=2, ensure_ascii=False)
 
 
-class JsonNetworkLoader():
+class JsonNetworkLoader:
     """Загрузчик слов из JSON-файла по URL.
 
     Работает с JSON-файлом, где данные хранятся в формате:
     {"слово": "перевод"}.
     """
 
-    def __init__(self, url: str):
-        self.url = url
+    def __init__(self, url: str) -> None:
+        """Инициализирует загрузчик сетевого JSON-источника.
+
+        Args:
+            url: URL-адрес JSON-файла со словами.
+        """
+        self.url: str = url
 
     def load_words(self) -> dict[str, str]:
         """Загружает слова из JSON-файла по URL.
@@ -201,5 +255,10 @@ class JsonNetworkLoader():
         response.raise_for_status()
         return response.json()
 
-    def save_words(self, words):
+    def save_words(self, words: dict[str, str]) -> None:
+        """Оставляет сетевой источник без изменений.
+
+        Args:
+            words: Словарь слов, который не сохраняется для сетевого источника.
+        """
         pass

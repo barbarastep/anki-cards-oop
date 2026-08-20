@@ -1,32 +1,34 @@
 import argparse
 import pathlib
+from collections.abc import Generator
 from contextlib import contextmanager
 
 from anki.anki import Anki
 from anki.loader import (
+    BaseFileLoader,
     JsonFileLoader,
     JsonNetworkLoader,
     TextFileLoader,
     TSVFileLoader,
+    WordsLoaderProtocol,
 )
 from anki.ui import TextUI
 
 
-def get_loader(source):
-    """Выбирает реализацию загрузчика в зависимости от `source`.
+def get_loader(source: str) -> WordsLoaderProtocol:
+    """Выбирает загрузчик слов по источнику.
 
-    Parameters
-    ----------
-    source : str
-        Источник для получения слов, файл.
+    Args:
+        source: Путь к локальному файлу или URL-адрес источника слов.
 
-    Returns
-    -------
-    Any
-        Класс загрузчика
+    Returns:
+        Загрузчик слов, подходящий для переданного источника.
+
+    Raises:
+        ValueError: Если источник имеет неизвестный формат.
     """
 
-    loaders = {
+    loaders: dict[str, type[BaseFileLoader]] = {
         ".txt": TextFileLoader,
         ".tsv": TSVFileLoader,
         ".json": JsonFileLoader
@@ -46,15 +48,21 @@ def get_loader(source):
 
 
 @contextmanager
-def game_context(loader, anki):
-    """Управляет жизненным циклом игры.
+def game_context(
+    loader: WordsLoaderProtocol,
+    anki: Anki,
+) -> Generator[Anki, None, None]:
+    """Управляет загрузкой и сохранением слов для игровой сессии.
+
+    При входе в контекст загружает слова через загрузчик и записывает их
+    в экземпляр игры. При выходе сохраняет актуальные слова через загрузчик.
 
     Args:
-        loader: Экземпляр загрузчика слов.
-        anki: Экземпляр игры Anki.
+        loader: Загрузчик слов с методами load_words() и save_words().
+        anki: Экземпляр игры, в который загружаются слова.
 
     Yields:
-        Anki: Экземпляр игры с загруженными словами.
+        Экземпляр игры с загруженными словами.
     """
     anki.words = loader.load_words()
 
@@ -64,18 +72,16 @@ def game_context(loader, anki):
         loader.save_words(anki.words)
 
 
-def main():
-    # Создали объект парсера аргументов командной строки.
+def main() -> None:
+    """Запускает консольное приложение Anki."""
     parser = argparse.ArgumentParser(prog="anki")
 
-    # Добавили новый аргумент.
     parser.add_argument(
         "--source", default="./words.txt",
         help="Путь или ссылка до источника со словами",
         metavar="SOURCE",
     )
 
-    # Распарсили аргументы командной строки.
     args = parser.parse_args()
 
     loader = get_loader(args.source)
