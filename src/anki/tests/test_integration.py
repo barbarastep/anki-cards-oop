@@ -16,13 +16,13 @@ def test_integration(tmp_path):
 
     anki = Anki(words=words)
 
-    assert anki.get_words() == {
+    assert anki.words == {
         "hello": "привет",
         "world": "мир",
     }
 
     anki.add_word("Python", "Питон")
-    loader.save_words(anki.get_words())
+    loader.save_words(anki.words)
 
     assert file_path.read_text(encoding="utf-8") == (
         "hello,привет\n"

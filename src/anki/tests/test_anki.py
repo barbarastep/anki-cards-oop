@@ -99,18 +99,18 @@ def test_anki_add_word_raises_ValueError_on_invalid_input(word, translation):
 def test_get_words_returns_copy():
     """Метод `get_words` должен возвращать копию словаря."""
     anki = Anki(words={"hello": "привет"})
-    words = anki.get_words()
+    words = anki.words
 
     words["python"] = "питон"
 
-    assert anki.get_words() == {"hello": "привет"}
+    assert anki.words == {"hello": "привет"}
 
 
 def test_anki_init_normalizes_words():
     """Класс `Anki` должен нормализовать слова при инициализации."""
     anki = Anki(words={"  Hello  ": " ПРИВЕТ "})
 
-    assert anki.get_words() == {"hello": "привет"}
+    assert anki.words == {"hello": "привет"}
 
 
 def test_get_random_word_returns_word_from_dictionary():

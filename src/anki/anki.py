@@ -1,5 +1,6 @@
 import copy
 import random
+import time
 
 
 class Anki:
@@ -9,21 +10,102 @@ class Anki:
         if words is None:
             words = {}
 
+        self._words: dict[str, str] = self._normalize_dict(words)
+        self._session_active = False
+        self._session_start_time = 0.0
+        self._session_user_score = 0
+        self._last_word: str | None = None
+        self.last_session_stats = {
+            "correct_answers": 0,
+            "total_time": 0.0,
+        }
+
+    def _normalize_dict(self, words: dict[str, str]) -> dict[str, str]:
+        """Нормализует словарь слов.
+
+        Args:
+            words: Словарь, где ключ — слово, а значение — перевод.
+
+        Returns:
+            dict[str, str]: Новый словарь с нормализованными словами
+            и переводами.
+
+        Raises:
+            ValueError: Если words не является словарём или если ключи
+            или значения словаря не являются строками.
+        """
         if not isinstance(words, dict):
             raise ValueError("words должен быть словарём")
 
-        self._words: dict[str, str] = {}
+        normalized_words: dict[str, str] = {}
 
         for word, translation in words.items():
-            self.add_word(word, translation)
+            normalized_word = self.normalize_word(word)
+            normalized_translation = self.normalize_word(translation)
+            normalized_words[normalized_word] = normalized_translation
 
-    def get_words(self) -> dict[str, str]:
+        return normalized_words
+
+    @property
+    def words(self) -> dict[str, str]:
         """Возвращает копию словаря слов.
 
         Returns:
             dict[str, str]: Копия словаря слов.
         """
         return copy.copy(self._words)
+
+    @words.setter
+    def words(self, words: dict[str, str]) -> None:
+        """Заменяет словарь слов на новый с валидацией и нормализацией.
+
+        Args:
+            words: Новый словарь, где ключ — слово, а значение — перевод.
+
+        Raises:
+            ValueError: Если words не является словарём или если ключи
+            или значения словаря не являются строками.
+        """
+        if self._session_active:
+            raise ValueError(
+                "Нельзя полностью заменить словарь во время "
+                "активной тренировки"
+            )
+        self._words = self._normalize_dict(words)
+
+    def start_session(self) -> None:
+        """Начинает тренировочную сессию.
+
+        Raises:
+            ValueError: Если тренировочная сессия уже активна.
+        """
+        if self._session_active:
+            raise ValueError("Тренировочная сессия уже активна")
+
+        self._session_active = True
+        self._session_start_time = time.time()
+        self._session_user_score = 0
+        self._last_word = None
+
+    def end_session(self) -> None:
+        """Завершает тренировочную сессию и сохраняет статистику.
+
+        Raises:
+            ValueError: Если тренировочная сессия не активна.
+        """
+        if not self._session_active:
+            raise ValueError("Тренировочная сессия не активна")
+
+        total_time = time.time() - self._session_start_time
+
+        self.last_session_stats = {
+            "correct_answers": self._session_user_score,
+            "total_time": total_time,
+        }
+
+        self._session_active = False
+        self._session_start_time = 0.0
+        self._last_word = None
 
     def get_random_word(self) -> str:
         """Возвращает случайное слово из словаря.
@@ -37,7 +119,9 @@ class Anki:
         if not self._words:
             raise ValueError("Нельзя выбрать слово из пустого словаря")
 
-        return random.choice(list(self._words.keys()))
+        random_word = random.choice(list(self._words.keys()))
+        self._last_word = random_word
+        return random_word
 
     def check_translation(self, word: str, translation: str) -> bool:
         """Проверяет перевод слова.
@@ -59,7 +143,26 @@ class Anki:
         if normalized_word not in self._words:
             raise ValueError("Слово отсутствует в словаре")
 
-        return self._words[normalized_word] == normalized_translation
+        if self._session_active:
+            if self._last_word is None:
+                raise ValueError(
+                    "Нельзя проверить перевод без выданного слова"
+                )
+
+            if normalized_word != self._last_word:
+                self.end_session()
+                raise ValueError(
+                    "Переданное слово не совпадает с последним выданным"
+                )
+
+        is_correct = self._words[normalized_word] == normalized_translation
+
+        if self._session_active:
+            if is_correct:
+                self._session_user_score += 1
+            self._last_word = None
+
+        return is_correct
 
     def get_translation(self, word: str) -> str:
         """Возвращает перевод слова.

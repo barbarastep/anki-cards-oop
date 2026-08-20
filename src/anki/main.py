@@ -1,5 +1,6 @@
 import argparse
 import pathlib
+from contextlib import contextmanager
 
 from anki.anki import Anki
 from anki.loader import (
@@ -44,6 +45,25 @@ def get_loader(source):
         raise ValueError(f"Неизвестный тип источника слов: {source}")
 
 
+@contextmanager
+def game_context(loader, anki):
+    """Управляет жизненным циклом игры.
+
+    Args:
+        loader: Экземпляр загрузчика слов.
+        anki: Экземпляр игры Anki.
+
+    Yields:
+        Anki: Экземпляр игры с загруженными словами.
+    """
+    anki.words = loader.load_words()
+
+    try:
+        yield anki
+    finally:
+        loader.save_words(anki.words)
+
+
 def main():
     # Создали объект парсера аргументов командной строки.
     parser = argparse.ArgumentParser(prog="anki")
@@ -60,10 +80,11 @@ def main():
 
     loader = get_loader(args.source)
 
-    anki = Anki(words=loader.load_words())
+    anki = Anki()
 
-    ui = TextUI(anki)
-    ui.main_loop()
+    with game_context(loader, anki) as game:
+        ui = TextUI(game)
+        ui.main_loop()
 
 
 if __name__ == "__main__":

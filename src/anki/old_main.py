@@ -169,7 +169,7 @@ def main() -> None:
     anki = Anki(words=words)
 
     TextUI(anki).main_loop()
-    loader.save_words(anki.get_words())
+    loader.save_words(anki.words)
 
 
 if __name__ == "__main__":

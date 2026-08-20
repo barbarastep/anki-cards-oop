@@ -47,6 +47,44 @@ class TextUI:
                     f"{correct_translation}"
                 )
 
+    def train_until_mistake(self) -> None:
+        """Запускает тренировку до первой ошибки."""
+        print(f"Чтобы закончить, введите {self.STOP_WORD}")
+
+        self._anki_game.start_session()
+
+        while True:
+            word = self._anki_game.get_random_word()
+            print(f"Ваше слово: {word}")
+
+            translation = input("Ваш перевод: ")
+
+            if translation.strip().upper() == self.STOP_WORD:
+                break
+
+            is_correct = self._anki_game.check_translation(word, translation)
+
+            if is_correct:
+                print("Верно!")
+            else:
+                correct_translation = self._anki_game.get_translation(word)
+                print(
+                    "Неправильно, правильный ответ: "
+                    f"{correct_translation}"
+                )
+                break
+
+        self._anki_game.end_session()
+
+        print(
+            "Правильных ответов: "
+            f"{self._anki_game.last_session_stats['correct_answers']}"
+        )
+        print(
+            "Время тренировки: "
+            f"{self._anki_game.last_session_stats['total_time']:.2f}"
+        )
+
     def add_words(self) -> None:
         """Запускает режим добавления новых слов."""
         print(f"Чтобы закончить, введите {self.STOP_WORD}")
@@ -64,15 +102,7 @@ class TextUI:
 
     def show_words(self) -> None:
         """Выводит количество слов и все пары слово-перевод."""
-        try:
-            words_count = len(self._anki_game)
-        except TypeError:
-            words = self._anki_game.get_words()
-            for word, translation in words.items():
-                print(f"{word} - {translation}")
-            return
-
-        print(f"Всего слов: {words_count}")
+        print(f"Всего слов: {len(self._anki_game)}")
 
         for word, translation in self._anki_game:
             print(f"{word} - {translation}")
@@ -88,7 +118,7 @@ class TextUI:
             elif menu_item == "2":
                 self.add_words()
             elif menu_item == "3":
-                print("Данная функциональность ещё не реализована")
+                self.train_until_mistake()
             elif menu_item == "4":
                 self.show_words()
             elif menu_item == "5":
