@@ -4,6 +4,161 @@ import time
 from collections.abc import Iterator
 
 
+class TrainingSession:
+    """Хранит состояние одной тренировочной сессии."""
+
+    def __init__(self, anki: "Anki") -> None:
+        """Инициализирует тренировочную сессию.
+
+        Args:
+            anki: Экземпляр Anki, из которого берутся слова и переводы.
+        """
+        self.active: bool = True
+        self._anki: Anki = anki
+        self._start_time: float = time.time()
+        self._end_time: float = self._start_time
+        self._user_score: int = 0
+        self._last_word: str | None = None
+
+    def get_random_word(self) -> str:
+        """Возвращает случайное слово и запоминает его в сессии.
+
+        Returns:
+            Случайное слово из словаря Anki.
+
+        Raises:
+            ValueError: Если сессия не активна.
+        """
+        if not self.active:
+            raise ValueError("Тренировочная сессия не активна")
+        word = self._anki.get_random_word()
+        self._last_word = word
+        return word
+
+    def check_translation(self, word: str, translation: str) -> bool:
+        """Проверяет перевод слова в рамках текущей сессии.
+
+        Args:
+            word: Слово для проверки.
+            translation: Перевод пользователя.
+
+        Returns:
+            True, если перевод верный, иначе False.
+
+        Raises:
+ValueError: Если сессия не активна, если проверяется не последнее
+                выданное слово или если слово ещё не выдавалось.
+        """
+        if not self.active:
+            raise ValueError("Тренировочная сессия не активна")
+        normalized_word = self._anki.normalize_word(word)
+
+        if self._last_word is None:
+            raise ValueError("Нельзя проверить перевод без выданного слова")
+
+        if normalized_word != self._last_word:
+            self.end_session()
+            raise ValueError(
+                "Переданное слово не совпадает с последним выданным"
+            )
+
+        is_correct = self._anki.check_translation(word, translation)
+
+        self._last_word = None
+        return is_correct
+
+    def end_session(self) -> None:
+        """Завершает тренировочную сессию.
+
+        Raises:
+            ValueError: Если сессия уже не активна.
+        """
+        if not self.active:
+            raise ValueError("Тренировочная сессия не активна")
+
+        self.active = False
+        self._end_time = time.time()
+        self._anki.end_session()
+
+    def get_stat(self) -> dict[str, int | float]:
+        """Возвращает статистику тренировочной сессии.
+
+        Returns:
+            Словарь с количеством правильных ответов и временем тренировки.
+        """
+        if self.active:
+            total_time = time.time() - self._start_time
+        else:
+            total_time = self._end_time - self._start_time
+
+        return {
+            "correct_answers": self._user_score,
+            "total_time": total_time,
+        }
+
+
+class ZeroMistakesTraining(TrainingSession):
+    """Тренировка до первой ошибки."""
+
+    def check_translation(self, word: str, translation: str) -> bool:
+        """Проверяет перевод и завершает тренировку при первой ошибке.
+
+        Args:
+            word: Слово для проверки.
+            translation: Перевод пользователя.
+
+        Returns:
+            True, если перевод верный, иначе False.
+        """
+        is_correct = super().check_translation(word, translation)
+
+        if is_correct:
+            self._user_score += 1
+        else:
+            self.end_session()
+
+        return is_correct
+
+
+class TimeLimitedTraining(TrainingSession):
+    """Тренировка с ограничением по времени."""
+
+    def __init__(
+        self,
+        anki: "Anki",
+        time_limit: float = 60.0,
+    ) -> None:
+        """Инициализирует тренировку с ограничением по времени.
+
+        Args:
+            anki: Экземпляр Anki, из которого берутся слова и переводы.
+            time_limit: Лимит времени тренировки в секундах.
+        """
+        super().__init__(anki)
+        self._time_limit: float = time_limit
+
+    def check_translation(self, word: str, translation: str) -> bool:
+        """Проверяет перевод и завершает сессию, если время истекло.
+
+        Args:
+            word: Слово для проверки.
+            translation: Перевод пользователя.
+
+        Returns:
+            True, если перевод верный, иначе False.
+        """
+
+        is_correct = super().check_translation(word, translation)
+
+        if is_correct:
+            self._user_score += 1
+
+        if time.time() - self._start_time >= self._time_limit:
+            self.end_session()
+
+        return is_correct
+
+
 class Anki:
     """Хранит словарь слов и управляет логикой тренировки."""
 
@@ -23,13 +178,6 @@ class Anki:
 
         self._words: dict[str, str] = self._normalize_dict(words)
         self._session_active: bool = False
-        self._session_start_time: float = 0.0
-        self._session_user_score: int = 0
-        self._last_word: str | None = None
-        self.last_session_stats: dict[str, int | float] = {
-            "correct_answers": 0,
-            "total_time": 0.0,
-        }
 
     def _normalize_dict(self, words: dict[str, str]) -> dict[str, str]:
         """Нормализует словарь слов.
@@ -84,39 +232,52 @@ class Anki:
             )
         self._words = self._normalize_dict(words)
 
-    def start_session(self) -> None:
-        """Начинает тренировочную сессию.
+    def start_zero_mistakes_training(self) -> TrainingSession:
+        """Начинает тренировку до первой ошибки.
+
+        Returns:
+            Объект тренировочной сессии.
 
         Raises:
-            ValueError: Если тренировочная сессия уже активна.
+            RuntimeError: Если тренировка уже активна.
         """
         if self._session_active:
-            raise ValueError("Тренировочная сессия уже активна")
+            raise RuntimeError("Нельзя начать тренировку, если она уже начата")
 
         self._session_active = True
-        self._session_start_time = time.time()
-        self._session_user_score = 0
-        self._last_word = None
+        return ZeroMistakesTraining(self)
 
-    def end_session(self) -> None:
-        """Завершает тренировочную сессию и сохраняет статистику.
+    def start_time_limited_training(
+        self,
+        time_limit: float = 60.0,
+    ) -> TrainingSession:
+        """Начинает тренировку с ограничением по времени.
+
+        Args:
+            time_limit: Лимит времени тренировки в секундах.
+
+        Returns:
+            Объект тренировки с ограничением по времени.
 
         Raises:
-            ValueError: Если тренировочная сессия не активна.
+            RuntimeError: Если тренировка уже активна.
+        """
+        if self._session_active:
+            raise RuntimeError("Нельзя начать тренировку, если она уже начата")
+
+        self._session_active = True
+        return TimeLimitedTraining(self, time_limit)
+
+    def end_session(self) -> None:
+        """Завершает активную тренировочную сессию.
+
+        Raises:
+            RuntimeError: Если активной тренировки нет.
         """
         if not self._session_active:
-            raise ValueError("Тренировочная сессия не активна")
-
-        total_time = max(time.time() - self._session_start_time, 0.000001)
-
-        self.last_session_stats = {
-            "correct_answers": self._session_user_score,
-            "total_time": total_time,
-        }
+            raise RuntimeError("Нельзя завершить неактивную сессию тренировки")
 
         self._session_active = False
-        self._session_start_time = 0.0
-        self._last_word = None
 
     def get_random_word(self) -> str:
         """Возвращает случайное слово из словаря.
@@ -131,7 +292,6 @@ class Anki:
             raise ValueError("Нельзя выбрать слово из пустого словаря")
 
         random_word = random.choice(list(self._words.keys()))
-        self._last_word = random_word
         return random_word
 
     def check_translation(self, word: str, translation: str) -> bool:
@@ -154,24 +314,7 @@ class Anki:
         if normalized_word not in self._words:
             raise ValueError("Слово отсутствует в словаре")
 
-        if self._session_active:
-            if self._last_word is None:
-                raise ValueError(
-                    "Нельзя проверить перевод без выданного слова"
-                )
-
-            if normalized_word != self._last_word:
-                self.end_session()
-                raise ValueError(
-                    "Переданное слово не совпадает с последним выданным"
-                )
-
         is_correct = self._words[normalized_word] == normalized_translation
-
-        if self._session_active:
-            if is_correct:
-                self._session_user_score += 1
-            self._last_word = None
 
         return is_correct
 

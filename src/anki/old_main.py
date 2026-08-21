@@ -12,7 +12,14 @@ def is_stop(value: str) -> bool:
 
 def show_menu() -> None:
     """Выводит главное меню программы."""
-    print(TextUI.MENU)
+    print(
+        "Меню:\n"
+        "1. Начать игру\n"
+        "2. Добавить слова\n"
+        "3. Тренировка до первой ошибки\n"
+        "4. Вывод всех слов\n"
+        "5. Выход"
+    )
 
 
 def get_random_words(words: dict[str, str]) -> list[tuple[str, str]]:
