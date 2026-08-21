@@ -6,16 +6,52 @@ build-backend = "setuptools.build_meta"
 name = "anki"
 version = "0.0.1"
 authors = [
-	{ name="Это вы!", email="author@example.com" }
+    { name = "Barbara Step", email = "b.barbarastep@gmail.com" }
 ]
-description = "Игра Карты Anki"
+description = "Консольное приложение для тренировки словарного запаса на английском языке с использованием карточек Anki."
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
-	"pytest"
+    "requests"
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "mypy",
+    "ruff",
+    "black",
+]
 
 [project.scripts]
 anki = "anki.main:main"
 
+[tool.pytest.ini_options]
+testpaths = [
+    "tests",
+    "src/anki/tests",
+]
+pythonpath = [
+    "src",
+]
+
+[tool.mypy]
+python_version = "3.12"
+check_untyped_defs = true
+
+[tool.black]
+line-length = 79
+target-version = ["py312"]
+
+[tool.ruff]
+line-length = 79
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "I",
+    "UP",
+    "B",
+]

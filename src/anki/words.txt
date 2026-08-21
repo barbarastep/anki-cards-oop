@@ -1,10 +1,10 @@
-яблоко, apple
-кот, cat
-дом, house
-самолёт, airplane
-ручка, pen
-собака, dog
-птица, bird
-школа, school
-язык, language
-телефон, mobile
+яблоко,apple
+кот,cat
+дом,house
+самолёт,airplane
+ручка,pen
+собака,dog
+птица,bird
+школа,school
+язык,language
+телефон,mobile
