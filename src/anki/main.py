@@ -1,55 +1,28 @@
 import argparse
-import pathlib
 from collections.abc import Generator
 from contextlib import contextmanager
 
 from anki.anki import Anki
-from anki.loader import (
-    BaseFileLoader,
-    JsonFileLoader,
-    JsonNetworkLoader,
-    TextFileLoader,
-    TSVFileLoader,
-    WordsLoaderProtocol,
-)
+from anki.loader import LoaderProtocol, loader_registry
 from anki.ui import TextUI
 
 
-def get_loader(source: str) -> WordsLoaderProtocol:
-    """Выбирает загрузчик слов по источнику.
+def get_loader(source: str) -> LoaderProtocol:
+    """Возвращает загрузчик для переданного источника слов.
 
     Args:
-        source: Путь к локальному файлу или URL-адрес источника слов.
+        source: Путь к файлу или URL.
 
     Returns:
-        Загрузчик слов, подходящий для переданного источника.
-
-    Raises:
-        ValueError: Если источник имеет неизвестный формат.
+        Экземпляр подходящего загрузчика.
     """
-
-    loaders: dict[str, type[BaseFileLoader]] = {
-        ".txt": TextFileLoader,
-        ".tsv": TSVFileLoader,
-        ".json": JsonFileLoader
-    }
-
-    if source.startswith("http") or source.startswith("https"):
-        return JsonNetworkLoader(source)
-
-    file_path = pathlib.Path(source)
-
-    try:
-        # suffix возвращает расширение файла
-        loader = loaders[file_path.suffix]
-        return loader(file_path=str(file_path))
-    except KeyError:
-        raise ValueError(f"Неизвестный тип источника слов: {source}")
+    loader_cls = loader_registry.get_loader(source)
+    return loader_cls.from_source(source)
 
 
 @contextmanager
 def game_context(
-    loader: WordsLoaderProtocol,
+    loader: LoaderProtocol,
     anki: Anki,
 ) -> Generator[Anki, None, None]:
     """Управляет загрузкой и сохранением слов для игровой сессии.

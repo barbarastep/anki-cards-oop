@@ -1,11 +1,23 @@
 import json
 import pathlib
 from collections.abc import Callable
-from typing import IO, Protocol, TypeVar
+from typing import IO, Protocol, Self, cast
 
 
-class WordsLoaderProtocol(Protocol):
+class LoaderProtocol(Protocol):
     """Описывает общий интерфейс загрузчиков слов."""
+
+    @classmethod
+    def from_source(cls, source: str) -> Self:
+        """Создаёт загрузчик из строки-источника.
+
+        Args:
+            source: Путь к файлу или URL.
+
+        Returns:
+            Экземпляр загрузчика.
+        """
+        ...
 
     def load_words(self) -> dict[str, str]:
         """Загружает слова из источника.
@@ -24,56 +36,126 @@ class WordsLoaderProtocol(Protocol):
         ...
 
 
-LoaderClass = TypeVar(
-    "LoaderClass",
-    bound=type[WordsLoaderProtocol],
-)
-
-
 class LoaderRegistry:
-    """Хранит соответствие идентификаторов и классов загрузчиков."""
+    """Хранит классы загрузчиков и условия их выбора."""
 
     def __init__(self) -> None:
         """Инициализирует пустой реестр загрузчиков."""
-        self._registry: dict[str, type[WordsLoaderProtocol]] = {}
+        self._registry: dict[
+            str | type[LoaderProtocol],
+            type[LoaderProtocol] | Callable[[str], bool],
+        ] = {}
 
     def register(
         self,
-        ident: str,
-    ) -> Callable[[LoaderClass], LoaderClass]:
-        """Регистрирует класс загрузчика по идентификатору.
+        predicate: Callable[[str], bool],
+    ) -> Callable[[type[LoaderProtocol]], type[LoaderProtocol]]:
+        """Регистрирует класс загрузчика с условием выбора.
 
         Args:
-            ident: Идентификатор загрузчика.
+            predicate: Функция, которая проверяет, подходит ли загрузчик
+                для переданного источника.
 
         Returns:
-            Декоратор, который сохраняет класс в реестре и возвращает его.
+            Декоратор, который сохраняет класс загрузчика в реестре.
         """
-        def decorator(loader_cls: LoaderClass) -> LoaderClass:
-            self._registry[ident] = loader_cls
+        def decorator(
+            loader_cls: type[LoaderProtocol],
+        ) -> type[LoaderProtocol]:
+            if isinstance(predicate, str):
+                self._registry[predicate] = loader_cls
+            else:
+                self._registry[loader_cls] = predicate
+
             return loader_cls
 
         return decorator
 
-    def get_loader(self, ident: str) -> type[WordsLoaderProtocol]:
-        """Возвращает класс загрузчика по идентификатору.
+    def get_loader(self, source: str) -> type[LoaderProtocol]:
+        """Находит подходящий класс загрузчика для источника.
 
         Args:
-            ident: Идентификатор загрузчика.
+            source: Путь к файлу или URL.
 
         Returns:
-            Зарегистрированный класс загрузчика.
+            Класс загрузчика, подходящий для source.
 
         Raises:
-            ValueError: Если идентификатор не найден в реестре.
+            ValueError: Если подходящий загрузчик не найден.
         """
-        try:
-            return self._registry[ident]
-        except KeyError:
-            raise ValueError(f"Неизвестный загрузчик: {ident}")
+        for key, value in self._registry.items():
+            if isinstance(key, str) and key == source:
+                if isinstance(value, type):
+                    return value
+
+            if not isinstance(key, str):
+                predicate = cast(Callable[[str], bool], value)
+                if predicate(source):
+                    return key
+
+        raise ValueError(f"Неизвестный источник: {source}")
 
 
 loader_registry = LoaderRegistry()
+
+
+@loader_registry.register(lambda source: source.startswith("http"))
+class JsonNetworkLoader:
+    """Загрузчик слов из JSON-файла по URL.
+
+    Работает с JSON-файлом, где данные хранятся в формате:
+    {"слово": "перевод"}.
+    """
+
+    def __init__(self, url: str) -> None:
+        """Инициализирует загрузчик сетевого JSON-источника.
+
+        Args:
+            url: URL-адрес JSON-файла со словами.
+        """
+        self.url: str = url
+
+    @classmethod
+    def from_source(cls, source: str) -> Self:
+        """Создаёт сетевой загрузчик из URL.
+
+        Args:
+            source: URL-адрес JSON-файла со словами.
+
+        Returns:
+            Экземпляр сетевого загрузчика.
+        """
+        return cls(source)
+
+    def load_words(self) -> dict[str, str]:
+        """Загружает слова из JSON-файла по URL.
+
+        Returns:
+            dict[str, str]: Словарь со словами и переводами.
+        """
+        import requests
+
+        response = requests.get(self.url)
+        response.raise_for_status()
+
+        words: dict[str, str] = response.json()
+
+        if not isinstance(words, dict):
+            raise ValueError("Некорректные данные получены по сети")
+
+        for word, translation in words.items():
+            if not isinstance(word, str) or not isinstance(translation, str):
+                raise ValueError("Некорректные данные получены по сети")
+
+        return words
+
+    def save_words(self, words: dict[str, str]) -> None:
+        """Оставляет сетевой источник без изменений.
+
+        Args:
+            words: Словарь слов, который не сохраняется для сетевого источника.
+        """
+        pass
 
 
 class BaseFileLoader:
@@ -102,6 +184,18 @@ class BaseFileLoader:
             raise ValueError(
                 f"Путь {file_path} является директорией, а должен быть файлом"
             )
+
+    @classmethod
+    def from_source(cls, source: str) -> Self:
+        """Создаёт файловый загрузчик из пути к файлу.
+
+        Args:
+            source: Путь к файлу со словами.
+
+        Returns:
+            Экземпляр файлового загрузчика.
+        """
+        return cls(file_path=source)
 
     def load_words(self) -> dict[str, str]:
         """Загружает слова из файла.
@@ -168,7 +262,7 @@ class BaseFileLoader:
         raise NotImplementedError
 
 
-@loader_registry.register(".txt")
+@loader_registry.register(lambda source: source.endswith(".txt"))
 class TextFileLoader(BaseFileLoader):
     """Загрузчик слов из текстового файла с разделителем-запятой.
 
@@ -208,7 +302,7 @@ class TextFileLoader(BaseFileLoader):
             file_object.write(f'{word},{translation}\n')
 
 
-@loader_registry.register(".tsv")
+@loader_registry.register(lambda source: source.endswith(".tsv"))
 class TSVFileLoader(BaseFileLoader):
     """Загрузчик слов из TSV-файла.
 
@@ -247,7 +341,7 @@ class TSVFileLoader(BaseFileLoader):
             file_object.write(f'{word}\t{translation}\n')
 
 
-@loader_registry.register(".json")
+@loader_registry.register(lambda source: source.endswith(".json"))
 class JsonFileLoader(BaseFileLoader):
     """Загрузчик слов из JSON-файла.
 
@@ -269,6 +363,9 @@ class JsonFileLoader(BaseFileLoader):
 
         words: dict[str, str] = json.load(file_object)
 
+        if not isinstance(words, dict):
+            raise ValueError("Некорректные данные в JSON-файле")
+
         for word, translation in words.items():
             if not isinstance(word, str) or not isinstance(translation, str):
                 raise ValueError("Некорректные данные в JSON-файле")
@@ -288,47 +385,3 @@ class JsonFileLoader(BaseFileLoader):
         """
 
         json.dump(words, file_object, indent=2, ensure_ascii=False)
-
-
-@loader_registry.register("http")
-class JsonNetworkLoader:
-    """Загрузчик слов из JSON-файла по URL.
-
-    Работает с JSON-файлом, где данные хранятся в формате:
-    {"слово": "перевод"}.
-    """
-
-    def __init__(self, url: str) -> None:
-        """Инициализирует загрузчик сетевого JSON-источника.
-
-        Args:
-            url: URL-адрес JSON-файла со словами.
-        """
-        self.url: str = url
-
-    def load_words(self) -> dict[str, str]:
-        """Загружает слова из JSON-файла по URL.
-
-        Returns:
-            dict[str, str]: Словарь со словами и переводами.
-        """
-        import requests
-
-        response = requests.get(self.url)
-        response.raise_for_status()
-
-        words: dict[str, str] = response.json()
-
-        for word, translation in words.items():
-            if not isinstance(word, str) or not isinstance(translation, str):
-                raise ValueError("Некорректные данные получены по сети")
-
-        return words
-
-    def save_words(self, words: dict[str, str]) -> None:
-        """Оставляет сетевой источник без изменений.
-
-        Args:
-            words: Словарь слов, который не сохраняется для сетевого источника.
-        """
-        pass
