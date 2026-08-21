@@ -50,7 +50,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="anki")
 
     parser.add_argument(
-        "--source", default="./words.txt",
+        "--source",
+        default="./words.txt",
         help="Путь или ссылка до источника со словами",
         metavar="SOURCE",
     )

@@ -1,8 +1,9 @@
 import random
 import time
-from anki.ui import TextUI
-from anki.loader import TextFileLoader
+
 from anki.anki import Anki
+from anki.loader import TextFileLoader
+from anki.ui import TextUI
 
 
 def is_stop(value: str) -> bool:

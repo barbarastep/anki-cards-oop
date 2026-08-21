@@ -38,16 +38,17 @@ class TrainingSession:
     def check_translation(self, word: str, translation: str) -> bool:
         """Проверяет перевод слова в рамках текущей сессии.
 
-        Args:
-            word: Слово для проверки.
-            translation: Перевод пользователя.
+                Args:
+                    word: Слово для проверки.
+                    translation: Перевод пользователя.
 
-        Returns:
-            True, если перевод верный, иначе False.
+                Returns:
+                    True, если перевод верный, иначе False.
 
-        Raises:
-ValueError: Если сессия не активна, если проверяется не последнее
-                выданное слово или если слово ещё не выдавалось.
+                Raises:
+                    ValueError: Если сессия не активна, если проверяется
+                        не последнее выданное слово или если слово ещё
+                            не выдавалось.
         """
         if not self.active:
             raise ValueError("Тренировочная сессия не активна")

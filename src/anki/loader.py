@@ -59,6 +59,7 @@ class LoaderRegistry:
         Returns:
             Декоратор, который сохраняет класс загрузчика в реестре.
         """
+
         def decorator(
             loader_cls: type[LoaderProtocol],
         ) -> type[LoaderProtocol]:
@@ -299,7 +300,7 @@ class TextFileLoader(BaseFileLoader):
             file_object: Открытый файловый объект для записи.
         """
         for word, translation in words.items():
-            file_object.write(f'{word},{translation}\n')
+            file_object.write(f"{word},{translation}\n")
 
 
 @loader_registry.register(lambda source: source.endswith(".tsv"))
@@ -338,7 +339,7 @@ class TSVFileLoader(BaseFileLoader):
             file_object: Открытый файловый объект для записи.
         """
         for word, translation in words.items():
-            file_object.write(f'{word}\t{translation}\n')
+            file_object.write(f"{word}\t{translation}\n")
 
 
 @loader_registry.register(lambda source: source.endswith(".json"))

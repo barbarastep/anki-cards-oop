@@ -101,8 +101,7 @@ class TextUI:
             else:
                 correct_translation = self._anki_game.get_translation(word)
                 print(
-                    "Неправильно, правильный ответ: "
-                    f"{correct_translation}"
+                    "Неправильно, правильный ответ: " f"{correct_translation}"
                 )
 
     def train_until_mistake(self) -> None:
