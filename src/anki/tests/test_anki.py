@@ -96,8 +96,8 @@ def test_anki_add_word_raises_ValueError_on_invalid_input(word, translation):
         anki.add_word(word, translation)
 
 
-def test_get_words_returns_copy():
-    """Метод `get_words` должен возвращать копию словаря."""
+def test_words_property_returns_copy():
+    """Свойство `words` должно возвращать копию словаря."""
     anki = Anki(words={"hello": "привет"})
     words = anki.words
 

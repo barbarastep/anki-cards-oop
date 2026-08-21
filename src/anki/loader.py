@@ -1,6 +1,7 @@
 import json
 import pathlib
-from typing import IO, Protocol
+from collections.abc import Callable
+from typing import IO, Protocol, TypeVar
 
 
 class WordsLoaderProtocol(Protocol):
@@ -21,6 +22,58 @@ class WordsLoaderProtocol(Protocol):
             words: Словарь, где ключ — слово, а значение — перевод.
         """
         ...
+
+
+LoaderClass = TypeVar(
+    "LoaderClass",
+    bound=type[WordsLoaderProtocol],
+)
+
+
+class LoaderRegistry:
+    """Хранит соответствие идентификаторов и классов загрузчиков."""
+
+    def __init__(self) -> None:
+        """Инициализирует пустой реестр загрузчиков."""
+        self._registry: dict[str, type[WordsLoaderProtocol]] = {}
+
+    def register(
+        self,
+        ident: str,
+    ) -> Callable[[LoaderClass], LoaderClass]:
+        """Регистрирует класс загрузчика по идентификатору.
+
+        Args:
+            ident: Идентификатор загрузчика.
+
+        Returns:
+            Декоратор, который сохраняет класс в реестре и возвращает его.
+        """
+        def decorator(loader_cls: LoaderClass) -> LoaderClass:
+            self._registry[ident] = loader_cls
+            return loader_cls
+
+        return decorator
+
+    def get_loader(self, ident: str) -> type[WordsLoaderProtocol]:
+        """Возвращает класс загрузчика по идентификатору.
+
+        Args:
+            ident: Идентификатор загрузчика.
+
+        Returns:
+            Зарегистрированный класс загрузчика.
+
+        Raises:
+            ValueError: Если идентификатор не найден в реестре.
+        """
+        try:
+            return self._registry[ident]
+        except KeyError:
+            raise ValueError(f"Неизвестный загрузчик: {ident}")
+
+
+loader_registry = LoaderRegistry()
 
 
 class BaseFileLoader:
@@ -115,6 +168,7 @@ class BaseFileLoader:
         raise NotImplementedError
 
 
+@loader_registry.register(".txt")
 class TextFileLoader(BaseFileLoader):
     """Загрузчик слов из текстового файла с разделителем-запятой.
 
@@ -154,6 +208,7 @@ class TextFileLoader(BaseFileLoader):
             file_object.write(f'{word},{translation}\n')
 
 
+@loader_registry.register(".tsv")
 class TSVFileLoader(BaseFileLoader):
     """Загрузчик слов из TSV-файла.
 
@@ -192,6 +247,7 @@ class TSVFileLoader(BaseFileLoader):
             file_object.write(f'{word}\t{translation}\n')
 
 
+@loader_registry.register(".json")
 class JsonFileLoader(BaseFileLoader):
     """Загрузчик слов из JSON-файла.
 
@@ -211,7 +267,13 @@ class JsonFileLoader(BaseFileLoader):
             dict[str, str]: Словарь со словами и переводами.
         """
 
-        return json.load(file_object)
+        words: dict[str, str] = json.load(file_object)
+
+        for word, translation in words.items():
+            if not isinstance(word, str) or not isinstance(translation, str):
+                raise ValueError("Некорректные данные в JSON-файле")
+
+        return words
 
     def _save_to_file(
         self,
@@ -228,6 +290,7 @@ class JsonFileLoader(BaseFileLoader):
         json.dump(words, file_object, indent=2, ensure_ascii=False)
 
 
+@loader_registry.register("http")
 class JsonNetworkLoader:
     """Загрузчик слов из JSON-файла по URL.
 
@@ -253,7 +316,14 @@ class JsonNetworkLoader:
 
         response = requests.get(self.url)
         response.raise_for_status()
-        return response.json()
+
+        words: dict[str, str] = response.json()
+
+        for word, translation in words.items():
+            if not isinstance(word, str) or not isinstance(translation, str):
+                raise ValueError("Некорректные данные получены по сети")
+
+        return words
 
     def save_words(self, words: dict[str, str]) -> None:
         """Оставляет сетевой источник без изменений.
